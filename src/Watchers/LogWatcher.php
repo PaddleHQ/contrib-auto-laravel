@@ -9,9 +9,13 @@ use Illuminate\Log\Events\MessageLogged;
 use OpenTelemetry\API\Instrumentation\CachedInstrumentation;
 use OpenTelemetry\API\Logs\LogRecord;
 use OpenTelemetry\API\Logs\Map\Psr3;
+use Illuminate\Log\LogManager;
 
 class LogWatcher extends Watcher
 {
+    /** @var LogManager */
+    private LogManager $logger;
+
     public function __construct(
         private CachedInstrumentation $instrumentation,
     ) {
@@ -22,6 +26,8 @@ class LogWatcher extends Watcher
     {
         /** @phan-suppress-next-line PhanTypeArraySuspicious */
         $app['events']->listen(MessageLogged::class, [$this, 'recordLog']);
+
+        $this->logger = $app['log'];
     }
 
     /**
@@ -29,6 +35,10 @@ class LogWatcher extends Watcher
      */
     public function recordLog(MessageLogged $log): void
     {
+        if (!$this->logger->isHandling($log->level)) {
+            return;
+        }
+
         $attributes = [
             'context' => json_encode(array_filter($log->context)),
         ];
